@@ -57,9 +57,30 @@
 
 2. サーバーを起動（デフォルトポート: 8080）
 
-3. ブラウザで将棋ゲームを開き、「AI強さ」から「USIエンジン」を選択
+3. **エンジンを接続**（重要！）
+   
+   **方法A: PowerShellスクリプトで接続（推奨）**
+   ```powershell
+   .\connect-engine.ps1
+   ```
+   
+   **方法B: 環境変数で自動接続**
+   ```powershell
+   $env:ENGINE_PATH=".\dlshogi-dr2_exhi\dlshogi_tensorrt.exe"
+   npm start
+   ```
+   
+   **方法C: APIで接続**
+   ```powershell
+   $body = @{ enginePath = ".\dlshogi-dr2_exhi\dlshogi_tensorrt.exe" } | ConvertTo-Json
+   Invoke-RestMethod -Uri "http://localhost:8080/usi/connect" -Method POST -ContentType "application/json" -Body $body
+   ```
+   
+   詳細は `接続手順.md` を参照してください。
 
-4. 必要に応じてUSIサーバーURLを設定（デフォルト: `http://localhost:8080`）
+4. ブラウザで将棋ゲームを開き、「AI強さ」から「USIエンジン」を選択
+
+5. 必要に応じてUSIサーバーURLを設定（デフォルト: `http://localhost:8080`）
 
 ## エンジンパスの指定方法
 

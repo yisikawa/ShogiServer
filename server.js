@@ -20,6 +20,7 @@ let engineAuthor = '';
 let pendingCommands = [];
 let currentPosition = null;
 let currentMoves = [];
+let currentGoRequest = null; // 現在のgoリクエスト情報
 
 /**
  * USIエンジンを起動
@@ -30,10 +31,44 @@ function startEngine(enginePath = 'engine.exe') {
         return;
     }
 
-    console.log(`エンジンを起動: ${enginePath}`);
-    engineProcess = spawn(enginePath, [], {
-        stdio: ['pipe', 'pipe', 'pipe']
-    });
+    // パスを正規化（相対パスを絶対パスに変換）
+    const path = require('path');
+    const fs = require('fs');
+    
+    let normalizedPath = enginePath;
+    if (!path.isAbsolute(enginePath)) {
+        // 相対パスの場合、現在の作業ディレクトリからの相対パスに変換
+        normalizedPath = path.resolve(process.cwd(), enginePath);
+    }
+    
+    // パスの正規化（バックスラッシュを統一）
+    normalizedPath = path.normalize(normalizedPath);
+    
+    // ファイルの存在確認
+    if (!fs.existsSync(normalizedPath)) {
+        console.error(`エラー: エンジンファイルが見つかりません: ${normalizedPath}`);
+        return;
+    }
+    
+    // エンジンのディレクトリを取得（DLLの読み込み用）
+    const engineDir = path.dirname(normalizedPath);
+    const engineFile = path.basename(normalizedPath);
+
+    console.log(`エンジンを起動: ${normalizedPath}`);
+    console.log(`作業ディレクトリ: ${engineDir}`);
+    
+    try {
+        engineProcess = spawn(normalizedPath, [], {
+            stdio: ['pipe', 'pipe', 'pipe'],
+            cwd: engineDir, // エンジンのディレクトリを作業ディレクトリに設定
+            shell: false
+        });
+    } catch (error) {
+        console.error(`エンジン起動エラー: ${error.message}`);
+        engineProcess = null;
+        engineReady = false;
+        return;
+    }
 
     let buffer = '';
 
@@ -51,13 +86,54 @@ function startEngine(enginePath = 'engine.exe') {
     });
 
     engineProcess.stderr.on('data', (data) => {
-        console.error(`エンジンエラー: ${data.toString()}`);
+        const errorMsg = data.toString();
+        console.error(`エンジンエラー: ${errorMsg}`);
+        // DLLエラーなどの重要なエラーメッセージを検出
+        if (errorMsg.includes('DLL') || errorMsg.includes('dll') || 
+            errorMsg.includes('not found') || errorMsg.includes('見つかりません')) {
+            console.error('⚠ DLLまたは依存ファイルが見つかりません。');
+            console.error('   エンジンのディレクトリに必要なDLLが存在するか確認してください。');
+        }
     });
 
     engineProcess.on('exit', (code) => {
         console.log(`エンジンが終了しました: コード ${code}`);
+        if (code !== 0 && code !== null) {
+            console.error(`エンジンが異常終了しました。エラーコード: ${code}`);
+            const errorCodeHex = '0x' + Math.abs(code).toString(16).toUpperCase();
+            console.error(`エラーコード（16進数）: ${errorCodeHex}`);
+            
+            // エラーコードの解釈
+            if (code === 3221225477 || code === -1073741819) {
+                console.error('エラー: アクセス違反 (Access Violation)');
+                console.error('考えられる原因:');
+                console.error('  - メモリ不足');
+                console.error('  - エンジンの内部バグ');
+                console.error('  - 不正なメモリアクセス');
+            } else {
+                console.error('考えられる原因:');
+                console.error('  - 必要なDLLファイルが不足している');
+                console.error('  - メモリ不足');
+                console.error('  - エンジンの内部エラー');
+            }
+            
+            // 思考中のリクエストがある場合、エラーレスポンスを返す
+            if (currentGoRequest && !currentGoRequest.responseSent) {
+                currentGoRequest.responseSent = true;
+                currentGoRequest.res.status(500).json({
+                    error: 'エンジンが思考中にクラッシュしました',
+                    errorCode: code,
+                    errorCodeHex: errorCodeHex
+                });
+            }
+        }
         engineProcess = null;
         engineReady = false;
+        // コールバックをクリア（エラーを防ぐため）
+        if (currentBestMoveCallback) {
+            currentBestMoveCallback = null;
+        }
+        currentGoRequest = null;
     });
 
     engineProcess.on('error', (error) => {
@@ -98,7 +174,8 @@ function handleEngineResponse(response) {
         }
     } else if (response.startsWith('bestmove ')) {
         const bestmove = response.substring(9).split(' ')[0];
-        if (currentBestMoveCallback) {
+        if (currentBestMoveCallback && engineProcess) {
+            // エンジンがまだ実行中の場合のみコールバックを実行
             currentBestMoveCallback(bestmove);
             currentBestMoveCallback = null;
         }
@@ -111,16 +188,36 @@ let currentBestMoveCallback = null;
  * 接続エンドポイント
  */
 app.post('/usi/connect', (req, res) => {
-    const enginePath = req.body.enginePath || 'engine.exe';
+    const enginePath = req.body.enginePath || process.env.ENGINE_PATH || 'engine.exe';
     
     if (!engineProcess) {
+        console.log(`エンジン接続リクエスト: ${enginePath}`);
         startEngine(enginePath);
+        
+        // エンジン起動の結果を少し待ってから返す
+        setTimeout(() => {
+            if (engineProcess) {
+                res.json({
+                    connected: true,
+                    message: 'USIサーバーに接続しました',
+                    enginePath: enginePath,
+                    engineRunning: engineProcess !== null
+                });
+            } else {
+                res.status(500).json({
+                    connected: false,
+                    error: 'エンジンの起動に失敗しました',
+                    enginePath: enginePath
+                });
+            }
+        }, 500);
+    } else {
+        res.json({
+            connected: true,
+            message: 'エンジンは既に起動しています',
+            engineRunning: true
+        });
     }
-
-    res.json({
-        connected: true,
-        message: 'USIサーバーに接続しました'
-    });
 });
 
 /**
@@ -141,13 +238,22 @@ app.post('/usi/usi', (req, res) => {
         });
     }
 
+    // レスポンスが既に送信されたかチェックするフラグ
+    let responseSent = false;
+
     // USIコマンドを送信
     sendCommand('usi');
     
     // エンジンが準備完了するまで待機（簡易版）
     const checkReady = setInterval(() => {
+        if (responseSent) {
+            clearInterval(checkReady);
+            return;
+        }
+        
         if (engineReady) {
             clearInterval(checkReady);
+            responseSent = true;
             res.json({
                 ready: true,
                 name: engineName,
@@ -159,7 +265,8 @@ app.post('/usi/usi', (req, res) => {
     // タイムアウト（5秒）
     setTimeout(() => {
         clearInterval(checkReady);
-        if (!engineReady) {
+        if (!responseSent && !engineReady) {
+            responseSent = true;
             res.status(500).json({
                 error: 'エンジンの初期化がタイムアウトしました'
             });
@@ -207,6 +314,16 @@ app.post('/usi/go', (req, res) => {
 
     const { timeLimit = 5000 } = req.body;
 
+    // レスポンスが既に送信されたかチェックするフラグ
+    let responseSent = false;
+
+    // 現在のリクエスト情報を保存（エンジン終了時のエラーハンドリング用）
+    currentGoRequest = {
+        res: res,
+        responseSent: false,
+        timeoutId: null
+    };
+
     // goコマンドを送信
     // 時間制限を設定（ミリ秒を秒に変換）
     const byoyomi = Math.max(1, Math.floor(timeLimit / 1000));
@@ -214,19 +331,38 @@ app.post('/usi/go', (req, res) => {
 
     // 最善手を待機
     currentBestMoveCallback = (bestmove) => {
-        res.json({
-            bestmove: bestmove,
-            position: currentPosition
-        });
+        if (!responseSent && engineProcess && currentGoRequest) {
+            responseSent = true;
+            currentGoRequest.responseSent = true;
+            if (currentGoRequest.timeoutId) {
+                clearTimeout(currentGoRequest.timeoutId);
+            }
+            currentBestMoveCallback = null;
+            currentGoRequest = null;
+            res.json({
+                bestmove: bestmove,
+                position: currentPosition
+            });
+        }
     };
 
     // タイムアウト処理
-    setTimeout(() => {
-        if (currentBestMoveCallback) {
+    currentGoRequest.timeoutId = setTimeout(() => {
+        if (!responseSent && currentGoRequest) {
+            responseSent = true;
+            currentGoRequest.responseSent = true;
             currentBestMoveCallback = null;
-            res.status(500).json({
-                error: '思考がタイムアウトしました'
-            });
+            // エンジンが終了しているかチェック
+            if (!engineProcess) {
+                res.status(500).json({
+                    error: 'エンジンが終了しました'
+                });
+            } else {
+                res.status(500).json({
+                    error: '思考がタイムアウトしました'
+                });
+            }
+            currentGoRequest = null;
         }
     }, timeLimit + 1000);
 });
@@ -247,6 +383,7 @@ app.post('/usi/quit', (req, res) => {
 
     engineReady = false;
     currentBestMoveCallback = null;
+    currentGoRequest = null;
 
     res.json({
         success: true,
@@ -271,6 +408,23 @@ app.listen(PORT, () => {
     console.log(`USIサーバーが起動しました: http://localhost:${PORT}`);
     console.log('エンジンパスを環境変数 ENGINE_PATH で指定できます');
     console.log('例: ENGINE_PATH=./engine.exe node server.js');
+    
+    // 環境変数でエンジンパスが指定されている場合、自動的に接続を試みる
+    const defaultEnginePath = process.env.ENGINE_PATH;
+    if (defaultEnginePath) {
+        console.log(`環境変数 ENGINE_PATH が設定されています: ${defaultEnginePath}`);
+        console.log('エンジンを自動接続します...');
+        setTimeout(() => {
+            if (!engineProcess) {
+                startEngine(defaultEnginePath);
+            }
+        }, 1000);
+    } else {
+        console.log('\nエンジンを接続するには、以下のAPIを呼び出してください:');
+        console.log('POST http://localhost:8080/usi/connect');
+        console.log('Body: { "enginePath": "./dlshogi-dr2_exhi/dlshogi_tensorrt.exe" }');
+        console.log('\nまたは、環境変数 ENGINE_PATH を設定してサーバーを再起動してください。');
+    }
 });
 
 // プロセス終了時のクリーンアップ

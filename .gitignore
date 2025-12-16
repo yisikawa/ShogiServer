@@ -5,10 +5,11 @@ __pycache__/
 *.pyd
 .Python
 env/
-venv/
+.venv/
 .env
 *.log
 .DS_Store
-
-
+dlshogi-dr2_exhi/
+Suisho5-YaneuraOu-v7.5.0-windows/
+YaneuraOu-Deep-TensorRT-V761/
 
