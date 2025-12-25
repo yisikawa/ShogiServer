@@ -1,0 +1,16 @@
+{
+  "servers": [
+    {
+      "name": "server1",
+      "port": 8081,
+      "enginePath": "./dlshogi-dr2_exhi/dlshogi_onnxruntime.exe",
+      "autoConnect": false
+    },
+    {
+      "name": "server2",
+      "port": 8082,
+      "enginePath": "./Suisho5-YaneuraOu-v7.5.0-windows/YaneuraOu_NNUE-tournament-clang++-zen2.exe",
+      "autoConnect": false
+    }
+  ]
+}
