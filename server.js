@@ -91,7 +91,7 @@ async function startAllServers() {
         if (serverInstances.length === 0) {
             console.error('[Main] 起動できたサーバーがありません');
             process.exit(1);
-        }
+    }
 }
 
 /**
