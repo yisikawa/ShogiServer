@@ -55,15 +55,15 @@ class USIServerInstance {
         this.port = config.port || 8080;
         this.enginePath = config.enginePath || '';
         this.autoConnect = config.autoConnect || false;
-        
+
         this.app = express();
         this.engineState = new EngineState();
         this.server = null;
-        
+
         this.setupMiddleware();
         this.setupRoutes();
     }
-    
+
     /**
      * ミドルウェアの設定
      */
@@ -71,7 +71,7 @@ class USIServerInstance {
         this.app.use(cors());
         this.app.use(express.json());
     }
-    
+
     /**
      * ルートの設定
      */
@@ -79,10 +79,10 @@ class USIServerInstance {
         // 接続エンドポイント
         this.app.post('/usi/connect', (req, res) => {
             const enginePath = req.body.enginePath || this.enginePath || process.env.ENGINE_PATH || 'engine.exe';
-            
+
             if (!this.engineState.process) {
                 this.startEngine(enginePath);
-                
+
                 setTimeout(() => {
                     if (this.engineState.process) {
                         res.json({
@@ -108,7 +108,7 @@ class USIServerInstance {
                 });
             }
         });
-        
+
         // USI初期化エンドポイント
         this.app.post('/usi/usi', (req, res) => {
             // エンジンが既に準備完了している場合、エンジン名を返す（エンジンが終了していても、エンジン名が取得されている場合は返す）
@@ -119,7 +119,7 @@ class USIServerInstance {
                     author: this.engineState.author
                 });
             }
-            
+
             // エンジンが終了していても、エンジン名が既に取得されている場合はそれを返す
             if (!this.isEngineAlive()) {
                 if (this.engineState.name) {
@@ -137,21 +137,21 @@ class USIServerInstance {
 
             let responseSent = false;
             const commandSent = this.sendCommand('usi');
-            
+
             if (!commandSent) {
                 console.error(`[USI Server ${this.name}:${this.port}] usiコマンドの送信に失敗しました`);
                 return res.status(500).json({
                     error: 'エンジンへのコマンド送信に失敗しました。エンジンが終了している可能性があります。'
                 });
             }
-            
+
             let usiokReceived = false;
             const checkUsiok = setInterval(() => {
                 if (responseSent) {
                     clearInterval(checkUsiok);
                     return;
                 }
-                
+
                 if (!this.isEngineAlive()) {
                     clearInterval(checkUsiok);
                     // エンジン名が既に取得されている場合は、それを返す
@@ -169,11 +169,11 @@ class USIServerInstance {
                         error: 'エンジンプロセスが終了しました'
                     });
                 }
-                
+
                 if (this.engineState.usiokReceived) {
                     clearInterval(checkUsiok);
                     usiokReceived = true;
-                    
+
                     const isreadyCommandSent = this.sendCommand('isready');
                     if (!isreadyCommandSent) {
                         responseSent = true;
@@ -182,13 +182,13 @@ class USIServerInstance {
                             error: 'isreadyコマンドの送信に失敗しました。エンジンが終了している可能性があります。'
                         });
                     }
-                    
+
                     const checkReadyok = setInterval(() => {
                         if (responseSent) {
                             clearInterval(checkReadyok);
                             return;
                         }
-                        
+
                         if (!this.isEngineAlive()) {
                             clearInterval(checkReadyok);
                             // エンジン名が既に取得されている場合は、それを返す
@@ -206,7 +206,7 @@ class USIServerInstance {
                                 error: 'エンジンプロセスが終了しました（readyok待機中）'
                             });
                         }
-                        
+
                         if (this.engineState.readyokReceived && this.engineState.ready) {
                             clearInterval(checkReadyok);
                             responseSent = true;
@@ -217,7 +217,7 @@ class USIServerInstance {
                             });
                         }
                     }, 50);
-                    
+
                     setTimeout(() => {
                         clearInterval(checkReadyok);
                         if (!responseSent && !this.engineState.readyokReceived) {
@@ -258,7 +258,7 @@ class USIServerInstance {
                 }
             }, 10000);
         });
-        
+
         // usinewgameエンドポイント
         this.app.post('/usi/usinewgame', (req, res) => {
             if (!this.isEngineAlive()) {
@@ -276,7 +276,7 @@ class USIServerInstance {
             }
 
             const commandSent = this.sendCommand('usinewgame');
-            
+
             if (!commandSent) {
                 console.error(`[USI Server ${this.name}:${this.port}] usinewgameコマンドの送信に失敗しました`);
                 return res.status(500).json({
@@ -289,13 +289,25 @@ class USIServerInstance {
                 message: 'usinewgameコマンドを送信しました'
             });
         });
-        
+
         // 局面設定エンドポイント
         this.app.post('/usi/position', (req, res) => {
             const { sfen, moves } = req.body;
             const requestId = ++this.engineState.positionRequestId;
-            
-            const command = `position sfen ${sfen}${(moves || []).length > 0 ? ' moves ' + moves.join(' ') : ''}`;
+
+            let command;
+            if (sfen === 'startpos') {
+                command = `position startpos`;
+            } else {
+                command = `position sfen ${sfen}`;
+            }
+
+            if (moves && moves.length > 0) {
+                command += ` moves ${moves.join(' ')}`;
+            }
+
+            console.log(`[USI Server ${this.name}:${this.port}] コマンド生成: ${command} (sfen=${sfen}, moves=${(moves || []).length})`);
+
             if (this.engineState.lastPositionCommand === command && this.engineState.positionRequestPending) {
                 return res.json({
                     success: true,
@@ -303,8 +315,8 @@ class USIServerInstance {
                     duplicate: true
                 });
             }
-            
-            if (!sfen || typeof sfen !== 'string') {
+
+            if ((!sfen || typeof sfen !== 'string') && sfen !== 'startpos') {
                 console.error(`[USI Server ${this.name}:${this.port}] 無効なSFEN形式 (ID: ${requestId})`);
                 return res.status(400).json({
                     error: '無効なSFEN形式です',
@@ -312,7 +324,7 @@ class USIServerInstance {
                     receivedSfen: sfen
                 });
             }
-            
+
             if (!this.isEngineAlive()) {
                 console.error(`[USI Server ${this.name}:${this.port}] エンジンが終了しています (ID: ${requestId})`);
                 return res.status(500).json({
@@ -320,7 +332,7 @@ class USIServerInstance {
                     requestId: requestId
                 });
             }
-            
+
             if (!this.engineState.ready) {
                 console.error(`[USI Server ${this.name}:${this.port}] エンジンが初期化されていません (ID: ${requestId})`);
                 return res.status(500).json({
@@ -335,7 +347,7 @@ class USIServerInstance {
             this.engineState.positionRequestPending = true;
 
             const commandSent = this.sendCommand(command);
-            
+
             if (!commandSent) {
                 this.engineState.positionRequestPending = false;
                 this.engineState.lastPositionCommand = null;
@@ -363,7 +375,7 @@ class USIServerInstance {
             setTimeout(() => {
                 clearInterval(checkInterval);
                 this.engineState.positionRequestPending = false;
-                
+
                 if (!this.isEngineAlive()) {
                     console.error(`[USI Server ${this.name}:${this.port}] positionコマンド送信後、エンジンが終了しました (ID: ${requestId})`);
                     if (!res.headersSent) {
@@ -383,11 +395,11 @@ class USIServerInstance {
                 }
             }, 500);
         });
-        
+
         // 思考開始エンドポイント
         this.app.post('/usi/go', (req, res) => {
             const { timeLimit = 5000 } = req.body;
-            
+
             if (!this.isEngineAlive()) {
                 console.error(`[USI Server ${this.name}:${this.port}] エンジンが終了しています`);
                 return res.status(500).json({
@@ -395,14 +407,14 @@ class USIServerInstance {
                     suggestion: 'エンジンを再起動してください。'
                 });
             }
-            
+
             if (!this.engineState.ready) {
                 console.error(`[USI Server ${this.name}:${this.port}] エンジンが初期化されていません`);
                 return res.status(500).json({
                     error: 'エンジンが初期化されていません。'
                 });
             }
-            
+
             if (this.engineState.positionRequestPending) {
                 let waitCount = 0;
                 const waitInterval = setInterval(() => {
@@ -419,10 +431,10 @@ class USIServerInstance {
                 }, 50);
                 return;
             }
-            
+
             this.proceedWithGo(req, res, timeLimit);
         });
-        
+
         // 終了エンドポイント
         this.app.post('/usi/quit', (req, res) => {
             if (this.engineState.process) {
@@ -434,13 +446,13 @@ class USIServerInstance {
                     this.engineState.reset();
                 }, 1000);
             }
-            
+
             res.json({
                 success: true,
                 message: 'エンジンを終了しました'
             });
         });
-        
+
         // ヘルスチェックエンドポイント
         this.app.get('/health', (req, res) => {
             res.json({
@@ -452,7 +464,7 @@ class USIServerInstance {
                 engineName: this.engineState.name
             });
         });
-        
+
         // 404エラーハンドラー
         this.app.use((req, res) => {
             if (req.path.includes('.well-known') || req.path.includes('devtools')) {
@@ -468,30 +480,30 @@ class USIServerInstance {
             });
         });
     }
-    
+
     /**
      * エンジンを起動
      */
     startEngine(enginePath = null) {
         const pathToUse = enginePath || this.enginePath || process.env.ENGINE_PATH || 'engine.exe';
-        
+
         if (this.engineState.process) {
             return;
         }
-        
+
         let normalizedPath = pathToUse;
         if (!path.isAbsolute(pathToUse)) {
             normalizedPath = path.resolve(process.cwd(), pathToUse);
         }
         normalizedPath = path.normalize(normalizedPath);
-        
+
         if (!fs.existsSync(normalizedPath)) {
             console.error(`[USI Server ${this.name}:${this.port}] エラー: エンジンファイルが見つかりません: ${normalizedPath}`);
             return;
         }
-        
+
         const engineDir = path.dirname(normalizedPath);
-        
+
         try {
             this.engineState.process = spawn(normalizedPath, [], {
                 stdio: ['pipe', 'pipe', 'pipe'],
@@ -503,10 +515,10 @@ class USIServerInstance {
             this.engineState.reset();
             return;
         }
-        
+
         this.setupEngineEventHandlers();
     }
-    
+
     /**
      * エンジンのイベントハンドラーを設定
      */
@@ -524,6 +536,7 @@ class USIServerInstance {
             lines.forEach(line => {
                 const trimmed = line.trim();
                 if (trimmed) {
+                    // console.log(`[USI Server ${this.name}:${this.port}] Engine Output << ${trimmed}`);
                     this.handleEngineResponse(trimmed);
                 }
             });
@@ -539,7 +552,7 @@ class USIServerInstance {
         proc.on('exit', (code) => {
             if (code !== 0 && code !== null) {
                 console.error(`[USI Server ${this.name}:${this.port}] エンジンが異常終了しました。エラーコード: ${code}`);
-                
+
                 if (this.engineState.currentGoRequest && !this.engineState.currentGoRequest.responseSent) {
                     this.engineState.currentGoRequest.responseSent = true;
                     this.engineState.currentGoRequest.res.status(500).json({
@@ -549,7 +562,7 @@ class USIServerInstance {
                     this.engineState.currentGoRequest = null;
                 }
             }
-            
+
             this.engineState.reset(true);
         });
 
@@ -562,7 +575,7 @@ class USIServerInstance {
             if (error.code === 'EPIPE' || error.code === 'ECONNRESET') {
                 console.error(`[USI Server ${this.name}:${this.port}] エンジンへの接続が切断されました。`);
                 this.engineState.reset();
-                
+
                 if (this.engineState.currentGoRequest && !this.engineState.currentGoRequest.responseSent) {
                     this.engineState.currentGoRequest.responseSent = true;
                     this.engineState.currentGoRequest.res.status(500).json({
@@ -573,7 +586,7 @@ class USIServerInstance {
             }
         });
     }
-    
+
     /**
      * エンジンの状態をチェック
      */
@@ -582,18 +595,18 @@ class USIServerInstance {
         if (!proc) {
             return false;
         }
-        
+
         if (proc.killed || proc.exitCode !== null) {
             return false;
         }
-        
+
         if (!proc.stdin || proc.stdin.destroyed || proc.stdin.writableEnded) {
             return false;
         }
-        
+
         return true;
     }
-    
+
     /**
      * エンジンにコマンドを送信
      */
@@ -606,27 +619,28 @@ class USIServerInstance {
         }
 
         try {
+            console.log(`[USI Server ${this.name}:${this.port}] Engine Input >> ${command}`);
             const success = this.engineState.process.stdin.write(command + '\n');
-            
+
             if (!success) {
                 this.engineState.process.stdin.once('drain', () => {
                     // バッファが空になったことを待つ（ログなし）
                 });
             }
-            
+
             return true;
         } catch (error) {
             console.error(`[USI Server ${this.name}:${this.port}] コマンド送信エラー: ${error.message}`);
-            
+
             if (error.code === 'EPIPE' || error.code === 'ECONNRESET') {
                 console.error(`[USI Server ${this.name}:${this.port}] エンジンへの接続が切断されました。`);
                 this.engineState.reset(true);
             }
-            
+
             return false;
         }
     }
-    
+
     /**
      * エンジンからの応答を処理
      */
@@ -654,14 +668,14 @@ class USIServerInstance {
             }
         }
     }
-    
+
     /**
      * goコマンドの実行
      */
     proceedWithGo(req, res, timeLimit) {
         const goStartTime = Date.now();
         let responseSent = false;
-        
+
         // 再度エンジンの状態を確認
         if (!this.isEngineAlive() || !this.engineState.ready) {
             console.error(`[USI Server ${this.name}:${this.port}] goコマンド送信前にエンジンの状態を再確認: エンジンが準備できていません`, {
@@ -684,7 +698,7 @@ class USIServerInstance {
         // goコマンドを送信
         const byoyomi = Math.max(1, Math.floor(timeLimit / 1000));
         const commandSent = this.sendCommand(`go byoyomi ${byoyomi}`);
-        
+
         if (!commandSent) {
             console.error(`[USI Server ${this.name}:${this.port}] goコマンドの送信に失敗しました`);
             this.engineState.currentGoRequest = null;
@@ -735,7 +749,7 @@ class USIServerInstance {
             }
         }, timeLimit + 1000);
     }
-    
+
     /**
      * サーバーを起動
      */
@@ -743,7 +757,7 @@ class USIServerInstance {
         return new Promise((resolve, reject) => {
             this.server = this.app.listen(this.port, () => {
                 console.log(`%c[USI Server ${this.name}] サーバーが起動しました: http://localhost:${this.port}`, 'color: #4CAF50; font-weight: bold');
-                
+
                 if (this.autoConnect && this.enginePath) {
                     setTimeout(() => {
                         if (!this.engineState.process) {
@@ -751,10 +765,10 @@ class USIServerInstance {
                         }
                     }, 1000);
                 }
-                
+
                 resolve();
             });
-            
+
             this.server.on('error', (error) => {
                 if (error.code === 'EADDRINUSE') {
                     console.error(`[USI Server ${this.name}] ポート ${this.port} は既に使用されています`);
@@ -766,7 +780,7 @@ class USIServerInstance {
             });
         });
     }
-    
+
     /**
      * サーバーを停止
      */
@@ -781,7 +795,7 @@ class USIServerInstance {
                     this.engineState.reset();
                 }, 1000);
             }
-            
+
             if (this.server) {
                 this.server.close(() => {
                     resolve();

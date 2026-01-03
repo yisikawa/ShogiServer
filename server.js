@@ -25,15 +25,15 @@ function loadConfig() {
                 }]
             };
         }
-        
+
         const configData = fs.readFileSync(CONFIG_FILE, 'utf8');
         const config = JSON.parse(configData);
-        
+
         if (!config.servers || !Array.isArray(config.servers) || config.servers.length === 0) {
             console.error('[Config] コンフィグファイルにservers配列がありません');
             process.exit(1);
         }
-        
+
         console.log(`[Config] コンフィグファイルを読み込みました: ${config.servers.length}個のサーバー設定`);
         return config;
     } catch (error) {
@@ -60,37 +60,37 @@ const serverInstances = [];
  */
 async function startAllServers() {
     const config = loadConfig();
-    
-        for (const serverConfig of config.servers) {
-            try {
-                // 必須パラメータの検証
-                if (!serverConfig.port) {
-                    console.error(`[Config] サーバー "${serverConfig.name || 'unknown'}" にポートが指定されていません`);
-                    continue;
-                }
-                
-                // サーバーインスタンスを作成
-                const server = new USIServerInstance({
-                    name: serverConfig.name || `server-${serverConfig.port}`,
-                    port: serverConfig.port,
-                    enginePath: serverConfig.enginePath || '',
-                    autoConnect: serverConfig.autoConnect || false
-                });
-                
-                // サーバーを起動
-                await server.start();
-                serverInstances.push(server);
-            } catch (error) {
-                console.error(`[Main] サーバー "${serverConfig.name || serverConfig.port}" の起動に失敗しました: ${error.message}`);
-                if (error.message.includes('already in use')) {
-                    console.error(`[Main] ポート ${serverConfig.port} は既に使用されています。別のポートを指定してください。`);
-                }
+
+    for (const serverConfig of config.servers) {
+        try {
+            // 必須パラメータの検証
+            if (!serverConfig.port) {
+                console.error(`[Config] サーバー "${serverConfig.name || 'unknown'}" にポートが指定されていません`);
+                continue;
+            }
+
+            // サーバーインスタンスを作成
+            const server = new USIServerInstance({
+                name: serverConfig.name || `server-${serverConfig.port}`,
+                port: serverConfig.port,
+                enginePath: serverConfig.enginePath || '',
+                autoConnect: serverConfig.autoConnect || false
+            });
+
+            // サーバーを起動
+            await server.start();
+            serverInstances.push(server);
+        } catch (error) {
+            console.error(`[Main] サーバー "${serverConfig.name || serverConfig.port}" の起動に失敗しました: ${error.message}`);
+            if (error.message.includes('already in use')) {
+                console.error(`[Main] ポート ${serverConfig.port} は既に使用されています。別のポートを指定してください。`);
             }
         }
-        
-        if (serverInstances.length === 0) {
-            console.error('[Main] 起動できたサーバーがありません');
-            process.exit(1);
+    }
+
+    if (serverInstances.length === 0) {
+        console.error('[Main] 起動できたサーバーがありません');
+        process.exit(1);
     }
 }
 
@@ -124,7 +124,9 @@ process.on('unhandledRejection', (reason, promise) => {
 });
 
 // サーバーを起動
-startAllServers().catch(error => {
+startAllServers().then(() => {
+    console.log('--- SERVER VERSION: 2.0 (Startpos Fix) ---');
+}).catch(error => {
     console.error('[Main] サーバー起動エラー:', error);
     process.exit(1);
 });

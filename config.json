@@ -2,7 +2,7 @@
   "servers": [
     {
       "name": "server1",
-      "port": 8081,
+      "port": 8083,
       "enginePath": "./dlshogi-dr2_exhi/ddlshogi_tensorrt.exe",
       "autoConnect": false
     },
