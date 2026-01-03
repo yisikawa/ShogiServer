@@ -61,76 +61,54 @@ const serverInstances = [];
 async function startAllServers() {
     const config = loadConfig();
     
-    console.log('\n========================================');
-    console.log('USIサーバー起動');
-    console.log('========================================\n');
-    
-    for (const serverConfig of config.servers) {
-        try {
-            // 必須パラメータの検証
-            if (!serverConfig.port) {
-                console.error(`[Config] サーバー "${serverConfig.name || 'unknown'}" にポートが指定されていません`);
-                continue;
-            }
-            
-            // サーバーインスタンスを作成
-            const server = new USIServerInstance({
-                name: serverConfig.name || `server-${serverConfig.port}`,
-                port: serverConfig.port,
-                enginePath: serverConfig.enginePath || '',
-                autoConnect: serverConfig.autoConnect || false
-            });
-            
-            // サーバーを起動
-            await server.start();
-            serverInstances.push(server);
-            
-            console.log(`[Main] サーバー "${server.name}" をポート ${server.port} で起動しました\n`);
-        } catch (error) {
-            console.error(`[Main] サーバー "${serverConfig.name || serverConfig.port}" の起動に失敗しました: ${error.message}`);
-            if (error.message.includes('already in use')) {
-                console.error(`[Main] ポート ${serverConfig.port} は既に使用されています。別のポートを指定してください。`);
+        for (const serverConfig of config.servers) {
+            try {
+                // 必須パラメータの検証
+                if (!serverConfig.port) {
+                    console.error(`[Config] サーバー "${serverConfig.name || 'unknown'}" にポートが指定されていません`);
+                    continue;
+                }
+                
+                // サーバーインスタンスを作成
+                const server = new USIServerInstance({
+                    name: serverConfig.name || `server-${serverConfig.port}`,
+                    port: serverConfig.port,
+                    enginePath: serverConfig.enginePath || '',
+                    autoConnect: serverConfig.autoConnect || false
+                });
+                
+                // サーバーを起動
+                await server.start();
+                serverInstances.push(server);
+            } catch (error) {
+                console.error(`[Main] サーバー "${serverConfig.name || serverConfig.port}" の起動に失敗しました: ${error.message}`);
+                if (error.message.includes('already in use')) {
+                    console.error(`[Main] ポート ${serverConfig.port} は既に使用されています。別のポートを指定してください。`);
+                }
             }
         }
-    }
-    
-    if (serverInstances.length === 0) {
-        console.error('[Main] 起動できたサーバーがありません');
-        process.exit(1);
-    }
-    
-    console.log('========================================');
-    console.log(`合計 ${serverInstances.length} 個のサーバーが起動しました`);
-    console.log('========================================\n');
-    
-    // 各サーバーの情報を表示
-    serverInstances.forEach(server => {
-        console.log(`  - ${server.name}: http://localhost:${server.port}`);
-    });
-    console.log('');
+        
+        if (serverInstances.length === 0) {
+            console.error('[Main] 起動できたサーバーがありません');
+            process.exit(1);
+        }
 }
 
 /**
  * すべてのサーバーを停止
  */
 async function stopAllServers() {
-    console.log('\n[Main] すべてのサーバーを停止します...');
-    
     const stopPromises = serverInstances.map(server => server.stop());
     await Promise.all(stopPromises);
-    
-    console.log('[Main] すべてのサーバーを停止しました');
     process.exit(0);
 }
 
 // プロセス終了時のクリーンアップ
 process.on('SIGINT', async () => {
-    console.log('\n[Main] シグナルを受信しました。サーバーを終了します...');
     await stopAllServers();
 });
 
 process.on('SIGTERM', async () => {
-    console.log('\n[Main] シグナルを受信しました。サーバーを終了します...');
     await stopAllServers();
 });
 
