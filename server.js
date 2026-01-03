@@ -63,6 +63,7 @@ const serverInstances = [];
  */
 async function startAllServers() {
     const config = loadConfig();
+<<<<<<< HEAD
 
     logger.info('USIサーバー起動開始');
 
@@ -89,9 +90,41 @@ async function startAllServers() {
             logger.error(`サーバー "${serverConfig.name || serverConfig.port}" の起動に失敗: ${error.message}`);
             if (error.message.includes('already in use')) {
                 logger.error(`ポート ${serverConfig.port} は既に使用されています`);
+=======
+    
+        for (const serverConfig of config.servers) {
+            try {
+                // 必須パラメータの検証
+                if (!serverConfig.port) {
+                    console.error(`[Config] サーバー "${serverConfig.name || 'unknown'}" にポートが指定されていません`);
+                    continue;
+                }
+                
+                // サーバーインスタンスを作成
+                const server = new USIServerInstance({
+                    name: serverConfig.name || `server-${serverConfig.port}`,
+                    port: serverConfig.port,
+                    enginePath: serverConfig.enginePath || '',
+                    autoConnect: serverConfig.autoConnect || false
+                });
+                
+                // サーバーを起動
+                await server.start();
+                serverInstances.push(server);
+            } catch (error) {
+                console.error(`[Main] サーバー "${serverConfig.name || serverConfig.port}" の起動に失敗しました: ${error.message}`);
+                if (error.message.includes('already in use')) {
+                    console.error(`[Main] ポート ${serverConfig.port} は既に使用されています。別のポートを指定してください。`);
+                }
+>>>>>>> 7a0f073d260ccd3a6bdc01a58e8e7ac9334ae462
             }
         }
+        
+        if (serverInstances.length === 0) {
+            console.error('[Main] 起動できたサーバーがありません');
+            process.exit(1);
     }
+<<<<<<< HEAD
 
     if (serverInstances.length === 0) {
         logger.error('起動できたサーバーがありません');
@@ -100,29 +133,42 @@ async function startAllServers() {
 
     const serverList = serverInstances.map(s => `[${s.name}: http://localhost:${s.port}]`).join(', ');
     logger.info(`サーバー起動完了 (${serverInstances.length}個): ${serverList}`);
+=======
+>>>>>>> 7a0f073d260ccd3a6bdc01a58e8e7ac9334ae462
 }
 
 /**
  * すべてのサーバーを停止
  */
 async function stopAllServers() {
+<<<<<<< HEAD
     logger.info('すべてのサーバーを停止します...');
 
     const stopPromises = serverInstances.map(server => server.stop());
     await Promise.all(stopPromises);
 
     logger.info('すべてのサーバーを停止しました');
+=======
+    const stopPromises = serverInstances.map(server => server.stop());
+    await Promise.all(stopPromises);
+>>>>>>> 7a0f073d260ccd3a6bdc01a58e8e7ac9334ae462
     process.exit(0);
 }
 
 // プロセス終了時のクリーンアップ
 process.on('SIGINT', async () => {
+<<<<<<< HEAD
     logger.info('シグナルを受信しました。終了します...');
+=======
+>>>>>>> 7a0f073d260ccd3a6bdc01a58e8e7ac9334ae462
     await stopAllServers();
 });
 
 process.on('SIGTERM', async () => {
+<<<<<<< HEAD
     logger.info('シグナルを受信しました。終了します...');
+=======
+>>>>>>> 7a0f073d260ccd3a6bdc01a58e8e7ac9334ae462
     await stopAllServers();
 });
 

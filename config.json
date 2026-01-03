@@ -3,7 +3,7 @@
     {
       "name": "server1",
       "port": 8081,
-      "enginePath": "./dlshogi-dr2_exhi/dlshogi_onnxruntime.exe",
+      "enginePath": "./dlshogi-dr2_exhi/ddlshogi_tensorrt.exe",
       "autoConnect": false
     },
     {

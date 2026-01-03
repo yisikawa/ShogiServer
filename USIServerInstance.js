@@ -81,15 +81,23 @@ class USIServerInstance {
         // 接続エンドポイント
         this.app.post('/usi/connect', (req, res) => {
             const enginePath = req.body.enginePath || this.enginePath || process.env.ENGINE_PATH || 'engine.exe';
+<<<<<<< HEAD
             this.logger.info(`接続リクエスト受信: ${enginePath} (IP: ${req.ip || req.connection.remoteAddress})`);
 
             if (!this.engineState.process) {
                 this.logger.info(`エンジン起動開始: ${enginePath}`);
+=======
+            
+            if (!this.engineState.process) {
+>>>>>>> 7a0f073d260ccd3a6bdc01a58e8e7ac9334ae462
                 this.startEngine(enginePath);
 
                 setTimeout(() => {
                     if (this.engineState.process) {
+<<<<<<< HEAD
                         this.logger.info('エンジン起動成功');
+=======
+>>>>>>> 7a0f073d260ccd3a6bdc01a58e8e7ac9334ae462
                         res.json({
                             connected: true,
                             message: 'USIサーバーに接続しました',
@@ -106,7 +114,10 @@ class USIServerInstance {
                     }
                 }, 500);
             } else {
+<<<<<<< HEAD
                 this.logger.info('エンジンは既に起動中');
+=======
+>>>>>>> 7a0f073d260ccd3a6bdc01a58e8e7ac9334ae462
                 res.json({
                     connected: true,
                     message: 'エンジンは既に起動しています',
@@ -117,8 +128,11 @@ class USIServerInstance {
 
         // USI初期化エンドポイント
         this.app.post('/usi/usi', (req, res) => {
+<<<<<<< HEAD
             this.logger.info('USI初期化リクエスト');
 
+=======
+>>>>>>> 7a0f073d260ccd3a6bdc01a58e8e7ac9334ae462
             // エンジンが既に準備完了している場合、エンジン名を返す（エンジンが終了していても、エンジン名が取得されている場合は返す）
             if (this.engineState.ready || (this.engineState.name && !this.isEngineAlive())) {
                 return res.json({
@@ -131,7 +145,6 @@ class USIServerInstance {
             // エンジンが終了していても、エンジン名が既に取得されている場合はそれを返す
             if (!this.isEngineAlive()) {
                 if (this.engineState.name) {
-                    console.warn(`[USI Server ${this.name}:${this.port}] エンジンが終了していますが、エンジン名は取得済み`);
                     return res.json({
                         ready: false,
                         name: this.engineState.name,
@@ -160,9 +173,16 @@ class USIServerInstance {
                     clearInterval(checkUsiok);
                     return;
                 }
+<<<<<<< HEAD
 
                 if (!this.isEngineAlive()) {
                     clearInterval(checkUsiok);
+=======
+                
+                if (!this.isEngineAlive()) {
+                    clearInterval(checkUsiok);
+                    // エンジン名が既に取得されている場合は、それを返す
+>>>>>>> 7a0f073d260ccd3a6bdc01a58e8e7ac9334ae462
                     if (this.engineState.name) {
                         responseSent = true;
                         return res.json({
@@ -172,6 +192,7 @@ class USIServerInstance {
                         });
                     }
                     responseSent = true;
+<<<<<<< HEAD
                     return res.status(500).json({ error: 'エンジンプロセスが終了しました' });
                 }
 
@@ -180,6 +201,18 @@ class USIServerInstance {
                     usiokReceived = true;
                     this.logger.info('usiok受信完了');
 
+=======
+                    console.error(`[USI Server ${this.name}:${this.port}] エンジンプロセスが終了しました`);
+                    return res.status(500).json({
+                        error: 'エンジンプロセスが終了しました'
+                    });
+                }
+                
+                if (this.engineState.usiokReceived) {
+                    clearInterval(checkUsiok);
+                    usiokReceived = true;
+                    
+>>>>>>> 7a0f073d260ccd3a6bdc01a58e8e7ac9334ae462
                     const isreadyCommandSent = this.sendCommand('isready');
                     if (!isreadyCommandSent) {
                         responseSent = true;
@@ -188,9 +221,13 @@ class USIServerInstance {
                             error: 'isreadyコマンドの送信に失敗しました。エンジンが終了している可能性があります。'
                         });
                     }
+<<<<<<< HEAD
 
                     this.logger.info('isreadyコマンド送信 - readyok待機中');
 
+=======
+                    
+>>>>>>> 7a0f073d260ccd3a6bdc01a58e8e7ac9334ae462
                     const checkReadyok = setInterval(() => {
                         if (responseSent) {
                             clearInterval(checkReadyok);
@@ -218,10 +255,13 @@ class USIServerInstance {
                         if (this.engineState.readyokReceived && this.engineState.ready) {
                             clearInterval(checkReadyok);
                             responseSent = true;
+<<<<<<< HEAD
                             this.logger.info('readyok受信完了 - エンジン初期化完了', {
                                 name: this.engineState.name,
                                 author: this.engineState.author
                             });
+=======
+>>>>>>> 7a0f073d260ccd3a6bdc01a58e8e7ac9334ae462
                             res.json({
                                 ready: true,
                                 name: this.engineState.name,
@@ -236,7 +276,6 @@ class USIServerInstance {
                             responseSent = true;
                             // エンジン名が取得できている場合は、ready: falseで返す（エラーにしない）
                             if (this.engineState.name) {
-                                console.warn(`[USI Server ${this.name}:${this.port}] readyok受信タイムアウト（エンジン名は取得済み: ${this.engineState.name}）`);
                                 return res.json({
                                     ready: false,
                                     name: this.engineState.name,
@@ -258,7 +297,6 @@ class USIServerInstance {
                     responseSent = true;
                     // エンジン名が取得できている場合は、ready: falseで返す（エラーにしない）
                     if (this.engineState.name) {
-                        console.warn(`[USI Server ${this.name}:${this.port}] usiok受信タイムアウト（エンジン名は取得済み: ${this.engineState.name}）`);
                         return res.json({
                             ready: false,
                             name: this.engineState.name,
@@ -275,8 +313,11 @@ class USIServerInstance {
 
         // usinewgameエンドポイント
         this.app.post('/usi/usinewgame', (req, res) => {
+<<<<<<< HEAD
             this.logger.info('usinewgameリクエスト');
 
+=======
+>>>>>>> 7a0f073d260ccd3a6bdc01a58e8e7ac9334ae462
             if (!this.isEngineAlive()) {
                 console.error(`[USI Server ${this.name}:${this.port}] エンジンが起動していません`);
                 return res.status(500).json({
@@ -300,7 +341,10 @@ class USIServerInstance {
                 });
             }
 
+<<<<<<< HEAD
             this.logger.info('usinewgameコマンド送信完了');
+=======
+>>>>>>> 7a0f073d260ccd3a6bdc01a58e8e7ac9334ae462
             res.json({
                 success: true,
                 message: 'usinewgameコマンドを送信しました'
@@ -309,13 +353,15 @@ class USIServerInstance {
 
         // 局面設定エンドポイント
         this.app.post('/usi/position', (req, res) => {
-            const timestamp = new Date().toISOString();
             const { sfen, moves } = req.body;
             const requestId = ++this.engineState.positionRequestId;
 
             const command = `position sfen ${sfen}${(moves || []).length > 0 ? ' moves ' + moves.join(' ') : ''}`;
             if (this.engineState.lastPositionCommand === command && this.engineState.positionRequestPending) {
+<<<<<<< HEAD
                 this.logger.warn(`重複positionリクエストを検出 (ID: ${requestId})`);
+=======
+>>>>>>> 7a0f073d260ccd3a6bdc01a58e8e7ac9334ae462
                 return res.json({
                     success: true,
                     message: '局面を設定しました（重複リクエスト）',
@@ -324,19 +370,23 @@ class USIServerInstance {
             }
 
             if (!sfen || typeof sfen !== 'string') {
-                console.error(`[USI Server ${this.name}:${this.port}] 無効なSFEN形式 (ID: ${requestId})`, { sfen: sfen });
+                console.error(`[USI Server ${this.name}:${this.port}] 無効なSFEN形式 (ID: ${requestId})`);
                 return res.status(400).json({
                     error: '無効なSFEN形式です',
                     requestId: requestId,
                     receivedSfen: sfen
                 });
             }
+<<<<<<< HEAD
 
             this.logger.info(`局面設定リクエスト (ID: ${requestId})`, {
                 sfen: sfen,
                 movesCount: (moves || []).length
             });
 
+=======
+            
+>>>>>>> 7a0f073d260ccd3a6bdc01a58e8e7ac9334ae462
             if (!this.isEngineAlive()) {
                 console.error(`[USI Server ${this.name}:${this.port}] エンジンが終了しています (ID: ${requestId})`);
                 return res.status(500).json({
@@ -374,12 +424,11 @@ class USIServerInstance {
                 if (!this.isEngineAlive()) {
                     clearInterval(checkInterval);
                     this.engineState.positionRequestPending = false;
-                    console.error(`[USI Server ${this.name}:${this.port}] ⚠️ positionコマンド送信後、エンジンが終了しました (ID: ${requestId})`);
+                    console.error(`[USI Server ${this.name}:${this.port}] positionコマンド送信後、エンジンが終了しました (ID: ${requestId})`);
                     if (!res.headersSent) {
                         return res.status(500).json({
                             error: 'エンジンがpositionコマンド受信後に終了しました',
-                            requestId: requestId,
-                            command: command
+                            requestId: requestId
                         });
                     }
                 }
@@ -390,16 +439,18 @@ class USIServerInstance {
                 this.engineState.positionRequestPending = false;
 
                 if (!this.isEngineAlive()) {
-                    console.error(`[USI Server ${this.name}:${this.port}] ⚠️ positionコマンド送信後、エンジンが終了しました (ID: ${requestId})`);
+                    console.error(`[USI Server ${this.name}:${this.port}] positionコマンド送信後、エンジンが終了しました (ID: ${requestId})`);
                     if (!res.headersSent) {
                         return res.status(500).json({
                             error: 'エンジンがpositionコマンド受信後に終了しました',
-                            requestId: requestId,
-                            command: command
+                            requestId: requestId
                         });
                     }
                 } else {
+<<<<<<< HEAD
                     this.logger.info(`局面設定完了 (ID: ${requestId})`);
+=======
+>>>>>>> 7a0f073d260ccd3a6bdc01a58e8e7ac9334ae462
                     if (!res.headersSent) {
                         res.json({
                             success: true,
@@ -413,8 +464,13 @@ class USIServerInstance {
 
         // 思考開始エンドポイント
         this.app.post('/usi/go', (req, res) => {
+<<<<<<< HEAD
             this.logger.info(`思考開始リクエスト (timeLimit: ${timeLimit})`);
 
+=======
+            const { timeLimit = 5000 } = req.body;
+            
+>>>>>>> 7a0f073d260ccd3a6bdc01a58e8e7ac9334ae462
             if (!this.isEngineAlive()) {
                 this.logger.error('エンジンが終了しています');
                 return res.status(500).json({
@@ -431,7 +487,6 @@ class USIServerInstance {
             }
 
             if (this.engineState.positionRequestPending) {
-                console.warn(`[USI Server ${this.name}:${this.port}] positionコマンド送信中です。少し待機します...`);
                 let waitCount = 0;
                 const waitInterval = setInterval(() => {
                     waitCount++;
@@ -453,8 +508,11 @@ class USIServerInstance {
 
         // 終了エンドポイント
         this.app.post('/usi/quit', (req, res) => {
+<<<<<<< HEAD
             this.logger.info('終了リクエスト');
 
+=======
+>>>>>>> 7a0f073d260ccd3a6bdc01a58e8e7ac9334ae462
             if (this.engineState.process) {
                 this.sendCommand('quit');
                 setTimeout(() => {
@@ -506,7 +564,10 @@ class USIServerInstance {
         const pathToUse = enginePath || this.enginePath || process.env.ENGINE_PATH || 'engine.exe';
 
         if (this.engineState.process) {
+<<<<<<< HEAD
             this.logger.info('エンジンは既に起動しています');
+=======
+>>>>>>> 7a0f073d260ccd3a6bdc01a58e8e7ac9334ae462
             return;
         }
 
@@ -522,11 +583,15 @@ class USIServerInstance {
         }
 
         const engineDir = path.dirname(normalizedPath);
+<<<<<<< HEAD
         const engineFile = path.basename(normalizedPath);
 
         this.logger.info(`エンジンを起動: ${normalizedPath}`);
         this.logger.debug(`作業ディレクトリ: ${engineDir}`);
 
+=======
+        
+>>>>>>> 7a0f073d260ccd3a6bdc01a58e8e7ac9334ae462
         try {
             this.engineState.process = spawn(normalizedPath, [], {
                 stdio: ['pipe', 'pipe', 'pipe'],
@@ -565,14 +630,18 @@ class USIServerInstance {
         });
 
         proc.stderr.on('data', (data) => {
-            const errorMsg = data.toString();
-            const timestamp = new Date().toISOString();
-            console.error(`%c[USI Server ${this.name}:${this.port} ${timestamp}] エンジンstderr: ${errorMsg.trim()}`, 'color: #F44336; font-weight: bold');
+            const errorMsg = data.toString().trim();
+            if (errorMsg) {
+                console.error(`[USI Server ${this.name}:${this.port}] エンジンstderr: ${errorMsg}`);
+            }
         });
 
         proc.on('exit', (code) => {
+<<<<<<< HEAD
             this.logger.warn(`エンジンが終了しました: コード ${code}`);
 
+=======
+>>>>>>> 7a0f073d260ccd3a6bdc01a58e8e7ac9334ae462
             if (code !== 0 && code !== null) {
                 console.error(`[USI Server ${this.name}:${this.port}] エンジンが異常終了しました。エラーコード: ${code}`);
 
@@ -595,9 +664,12 @@ class USIServerInstance {
         });
 
         proc.stdin.on('error', (error) => {
+<<<<<<< HEAD
             const timestamp = new Date().toISOString();
             console.error(`%c[USI Server ${this.name}:${this.port} ${timestamp}] エンジンstdinエラー: ${error.message}`, 'color: #F44336; font-weight: bold');
 
+=======
+>>>>>>> 7a0f073d260ccd3a6bdc01a58e8e7ac9334ae462
             if (error.code === 'EPIPE' || error.code === 'ECONNRESET') {
                 console.error(`[USI Server ${this.name}:${this.port}] エンジンへの接続が切断されました。`);
                 this.engineState.reset();
@@ -645,20 +717,34 @@ class USIServerInstance {
         }
 
         try {
+<<<<<<< HEAD
             this.logger.debug(`→ エンジン: ${command}`);
 
+=======
+>>>>>>> 7a0f073d260ccd3a6bdc01a58e8e7ac9334ae462
             const success = this.engineState.process.stdin.write(command + '\n');
 
             if (!success) {
+<<<<<<< HEAD
                 this.engineState.process.stdin.once('drain', () => { });
+=======
+                this.engineState.process.stdin.once('drain', () => {
+                    // バッファが空になったことを待つ（ログなし）
+                });
+>>>>>>> 7a0f073d260ccd3a6bdc01a58e8e7ac9334ae462
             }
 
             return true;
         } catch (error) {
+<<<<<<< HEAD
             console.error(`[USI Server ${this.name}:${this.port}] コマンド送信エラー`, {
                 error: error.message
             });
 
+=======
+            console.error(`[USI Server ${this.name}:${this.port}] コマンド送信エラー: ${error.message}`);
+            
+>>>>>>> 7a0f073d260ccd3a6bdc01a58e8e7ac9334ae462
             if (error.code === 'EPIPE' || error.code === 'ECONNRESET') {
                 console.error(`[USI Server ${this.name}:${this.port}] エンジンへの接続が切断されました。`);
                 this.engineState.reset(true);
@@ -672,6 +758,7 @@ class USIServerInstance {
      * エンジンからの応答を処理
      */
     handleEngineResponse(response) {
+<<<<<<< HEAD
         this.logger.debug(`← エンジン: ${response}`);
 
         if (response.startsWith('id name ')) {
@@ -680,11 +767,18 @@ class USIServerInstance {
         } else if (response.startsWith('id author ')) {
             this.engineState.author = response.substring(10);
             this.logger.info(`エンジン作者: ${this.engineState.author}`);
+=======
+        if (response.startsWith('id name ')) {
+            this.engineState.name = response.substring(8);
+        } else if (response.startsWith('id author ')) {
+            this.engineState.author = response.substring(10);
+>>>>>>> 7a0f073d260ccd3a6bdc01a58e8e7ac9334ae462
         } else if (response.startsWith('option name Engine_Name')) {
             // dlshogi_onnxruntime.exeなどが使用する非標準形式: "option name Engine_Name type string default dlshogi"
             const match = response.match(/option name Engine_Name\s+type string\s+default\s+(.+)/);
             if (match && match[1]) {
                 this.engineState.name = match[1].trim();
+<<<<<<< HEAD
                 this.logger.info(`エンジン名（option形式）: ${this.engineState.name}`);
             }
         } else if (response === 'usiok') {
@@ -697,6 +791,16 @@ class USIServerInstance {
         } else if (response.startsWith('bestmove ')) {
             const bestmove = response.substring(9).split(' ')[0];
             this.logger.info(`最善手受信: ${bestmove}`);
+=======
+            }
+        } else if (response === 'usiok') {
+            this.engineState.usiokReceived = true;
+        } else if (response === 'readyok') {
+            this.engineState.readyokReceived = true;
+            this.engineState.ready = true;
+        } else if (response.startsWith('bestmove ')) {
+            const bestmove = response.substring(9).split(' ')[0];
+>>>>>>> 7a0f073d260ccd3a6bdc01a58e8e7ac9334ae462
             if (this.engineState.bestMoveCallback && this.engineState.process) {
                 this.engineState.bestMoveCallback(bestmove);
                 this.engineState.bestMoveCallback = null;
@@ -751,11 +855,14 @@ class USIServerInstance {
                 if (req.timeoutId) {
                     clearTimeout(req.timeoutId);
                 }
+<<<<<<< HEAD
                 const elapsed = Date.now() - req.startTime;
                 this.logger.info('思考完了', {
                     bestmove: bestmove,
                     elapsed: `${elapsed}ms`
                 });
+=======
+>>>>>>> 7a0f073d260ccd3a6bdc01a58e8e7ac9334ae462
                 this.engineState.bestMoveCallback = null;
                 this.engineState.currentGoRequest = null;
                 res.json({
@@ -799,14 +906,20 @@ class USIServerInstance {
                 this.logger.info(`サーバーが起動しました: http://localhost:${this.port}`);
 
                 if (this.autoConnect && this.enginePath) {
+<<<<<<< HEAD
                     this.logger.info(`自動接続を開始します: ${this.enginePath}`);
+=======
+>>>>>>> 7a0f073d260ccd3a6bdc01a58e8e7ac9334ae462
                     setTimeout(() => {
                         if (!this.engineState.process) {
                             this.startEngine(this.enginePath);
                         }
                     }, 1000);
+<<<<<<< HEAD
                 } else {
                     this.logger.info('エンジンを接続するには /usi/connect を呼び出してください');
+=======
+>>>>>>> 7a0f073d260ccd3a6bdc01a58e8e7ac9334ae462
                 }
 
                 resolve();
@@ -841,7 +954,10 @@ class USIServerInstance {
 
             if (this.server) {
                 this.server.close(() => {
+<<<<<<< HEAD
                     this.logger.info('サーバーを停止しました');
+=======
+>>>>>>> 7a0f073d260ccd3a6bdc01a58e8e7ac9334ae462
                     resolve();
                 });
             } else {
