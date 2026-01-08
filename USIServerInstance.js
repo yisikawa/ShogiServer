@@ -78,7 +78,7 @@ class USIServerInstance {
     setupRoutes() {
         // 接続エンドポイント
         this.app.post('/usi/connect', (req, res) => {
-            const enginePath = req.body.enginePath || this.enginePath || process.env.ENGINE_PATH || 'engine.exe';
+            const enginePath = this.enginePath || process.env.ENGINE_PATH || 'engine.exe';
 
             if (!this.engineState.process) {
                 this.startEngine(enginePath);
@@ -295,6 +295,24 @@ class USIServerInstance {
             const { sfen, moves } = req.body;
             const requestId = ++this.engineState.positionRequestId;
 
+            // Security: Input Validation
+            // Ban newlines and control characters to prevent USI command injection
+            const hasInvalidChars = (str) => /[\r\n\x00-\x1f]/.test(str);
+
+            if (sfen && typeof sfen === 'string' && hasInvalidChars(sfen)) {
+                console.error(`[USI Server ${this.name}:${this.port}] Security Warning: Invalid characters in SFEN`);
+                return res.status(400).json({ error: 'Invalid characters in SFEN' });
+            }
+
+            if (moves && Array.isArray(moves)) {
+                for (const move of moves) {
+                    if (typeof move === 'string' && hasInvalidChars(move)) {
+                        console.error(`[USI Server ${this.name}:${this.port}] Security Warning: Invalid characters in moves`);
+                        return res.status(400).json({ error: 'Invalid characters in moves' });
+                    }
+                }
+            }
+
             let command;
             if (sfen === 'startpos') {
                 command = `position startpos`;
@@ -483,9 +501,10 @@ class USIServerInstance {
 
     /**
      * エンジンを起動
+     * (セキュリティ対策: 外部からのパス指定を廃止)
      */
-    startEngine(enginePath = null) {
-        const pathToUse = enginePath || this.enginePath || process.env.ENGINE_PATH || 'engine.exe';
+    startEngine() {
+        const pathToUse = this.enginePath || process.env.ENGINE_PATH || 'engine.exe';
 
         if (this.engineState.process) {
             return;
